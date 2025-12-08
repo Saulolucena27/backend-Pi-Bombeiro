@@ -1,0 +1,164 @@
+// Prisma Schema - Sistema SISOCC (Corpo de Bombeiros)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USUARIOS ====================
+model User {
+  id           String     @id @default(uuid())
+  nome         String
+  email        String     @unique
+  senha        String
+  cargo        String
+  departamento String
+  status       UserStatus @default(PENDENTE)
+  telefone     String
+  avatar       String?
+  permissoes   Json       @default("[]")
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  ultimoAcesso DateTime?
+
+  // Relacoes
+  ocorrenciasCriadas     Occurrence[] @relation("OccurrenceCriador")
+  ocorrenciasResponsavel Occurrence[] @relation("OccurrenceResponsavel")
+  auditLogs              AuditLog[]
+
+  @@map("users")
+}
+
+enum UserStatus {
+  ATIVO
+  INATIVO
+  PENDENTE
+}
+
+// ==================== OCORRENCIAS ====================
+model Occurrence {
+  id          String           @id @default(uuid())
+  tipo        TipoOcorrencia
+  local       String
+  endereco    String
+  bairro      String?
+  cidade      String           @default("Recife")
+  estado      String           @default("PE")
+  latitude    Float
+  longitude   Float
+  status      StatusOcorrencia @default(NOVO)
+  prioridade  Prioridade       @default(MEDIA)
+  descricao   String?
+  observacoes String?
+
+  // Informacoes de atendimento
+  dataOcorrencia  DateTime  @default(now())
+  dataAtendimento DateTime?
+  dataConclusao   DateTime?
+  tempoResposta   Int?
+
+  // Responsaveis
+  criadoPorId String
+  criadoPor   User   @relation("OccurrenceCriador", fields: [criadoPorId], references: [id])
+
+  responsavelId String?
+  responsavel   User?   @relation("OccurrenceResponsavel", fields: [responsavelId], references: [id])
+
+  // Anexos
+  fotos    Json @default("[]")
+  tags     Json @default("[]")
+  metadata Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  historico OccurrenceHistory[]
+
+  @@index([status])
+  @@index([tipo])
+  @@index([dataOcorrencia])
+  @@index([latitude, longitude])
+  @@map("occurrences")
+}
+
+enum TipoOcorrencia {
+  RISCO
+  ALAGAMENTO
+  TRANSITO
+  INCENDIO
+  QUEDA_ARVORE
+  ACIDENTE
+  RESGATE
+  VAZAMENTO
+  OUTROS
+}
+
+enum StatusOcorrencia {
+  NOVO
+  EM_ANALISE
+  EM_ATENDIMENTO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum Prioridade {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+// ==================== HISTORICO ====================
+model OccurrenceHistory {
+  id           String     @id @default(uuid())
+  occurrenceId String
+  occurrence   Occurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+
+  statusAnterior StatusOcorrencia?
+  statusNovo     StatusOcorrencia
+  observacao     String?
+  modificadoPor  String
+
+  createdAt DateTime @default(now())
+
+  @@index([occurrenceId])
+  @@map("occurrence_history")
+}
+
+// ==================== AUDITORIA ====================
+model AuditLog {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  acao       String
+  entidade   String
+  entidadeId String?
+  detalhes   Json    @default("{}")
+  ip         String?
+  userAgent  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ==================== CONFIGURACOES ====================
+model SystemConfig {
+  id        String  @id @default(uuid())
+  chave     String  @unique
+  valor     Json
+  descricao String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}
