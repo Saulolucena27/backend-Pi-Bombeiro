@@ -1,11 +1,20 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import http from 'http'; // <--- Importe o http
 import app from './app';
+import { initSocket } from './socket'; // <--- Importe nossa função
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
+// 1. Criar servidor HTTP usando o app Express
+const httpServer = http.createServer(app);
+
+// 2. Inicializar o Socket.io nesse servidor
+initSocket(httpServer);
+
+// 3. Mudar de app.listen para httpServer.listen
+httpServer.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════╗
 ║                                                   ║
@@ -13,11 +22,7 @@ app.listen(PORT, () => {
 ║   📍 Corpo de Bombeiros de Recife/PE              ║
 ║                                                   ║
 ║   🚀 Server running on port ${PORT}                  ║
-║   🌐 Environment: ${process.env.NODE_ENV || 'development'}               ║
-║   📊 Database: PostgreSQL                         ║
-║                                                   ║
-║   📡 API: http://localhost:${PORT}                   ║
-║   📚 Docs: http://localhost:${PORT}/api/health       ║
+║   📡 Socket.io: ATIVO                             ║
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
   `);

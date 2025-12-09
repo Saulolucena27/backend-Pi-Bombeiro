@@ -78,7 +78,8 @@ async function main() {
     }
   });
 
-  const pendente = await prisma.user.create({
+  // CORREÇÃO 1: Removida a atribuição à variável 'pendente' não utilizada
+  await prisma.user.create({
     data: {
       nome: 'Ana Paula Santos',
       email: 'ana.santos@bombeiros.pe.gov.br',
@@ -108,18 +109,7 @@ async function main() {
     'VAZAMENTO'
   ];
 
-  const bairrosRecife = [
-    'Boa Viagem',
-    'Casa Amarela',
-    'Centro',
-    'Várzea',
-    'Pina',
-    'Ibura',
-    'Piedade',
-    'Torre',
-    'Encruzilhada',
-    'Afogados'
-  ];
+  // CORREÇÃO 2: Removido o array 'bairrosRecife' não utilizado
 
   const coordenadasRecife = [
     { lat: -8.1137, lng: -34.9048, bairro: 'Boa Viagem' },

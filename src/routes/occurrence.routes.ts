@@ -33,39 +33,38 @@ router.get('/:id', (req: AuthRequest, res: Response) => occurrenceController.get
 
 /**
  * @route   POST /api/occurrences
- * @desc    Criar nova ocorrência (agora com suporte a upload de fotos)
- * @access  Private
+ * @desc    Criar nova ocorrência (com upload de fotos)
  */
 router.post(
   '/',
-  checkPermission('Visualizar'), // Ajuste permissão se necessário
-  upload.array('fotos', 5),      // Middleware Multer: campo 'fotos', máx 5 arquivos
-  createOccurrenceValidator,     // Validações do express-validator
-  validate,                      // Middleware de checagem de erros
+  checkPermission('Visualizar'),
+  upload.array('fotos', 5), // Middleware do Multer para as fotos
+  createOccurrenceValidator,
+  validate,
   (req: AuthRequest, res: Response) => occurrenceController.create(req, res)
 );
 
 /**
- * @route   PUT /api/occurrences/:id
+* @route   PUT /api/occurrences/:id
  * @desc    Atualizar ocorrência
- * @access  Private
  */
 router.put(
-  '/:id', 
+  '/:id',
   checkPermission('Editar'),
   updateOccurrenceValidator,
   validate,
+  // CORREÇÃO: Adicionamos os tipos aqui
   (req: AuthRequest, res: Response) => occurrenceController.update(req, res)
 );
 
 /**
  * @route   DELETE /api/occurrences/:id
  * @desc    Excluir ocorrência
- * @access  Private
  */
 router.delete(
   '/:id', 
   checkPermission('Excluir'), 
+  // CORREÇÃO: Adicionamos os tipos aqui também
   (req: AuthRequest, res: Response) => occurrenceController.delete(req, res)
 );
 

@@ -1,5 +1,6 @@
 import { PrismaClient, TipoOcorrencia, Prioridade, StatusOcorrencia } from '@prisma/client';
 import axios from 'axios';
+import { getIO } from '../socket';
 
 const prisma = new PrismaClient();
 
@@ -14,7 +15,7 @@ interface CreateOccurrenceDTO {
   descricao?: string;
   criadoPorId: string;
   responsavelId?: string;
-  files?: Express.Multer.File[]; // Campo para os arquivos
+  files?: Express.Multer.File[];
 }
 
 export class OccurrenceService {
@@ -23,10 +24,10 @@ export class OccurrenceService {
     let lat = data.latitude;
     let lng = data.longitude;
 
-    // Extrai apenas os nomes dos arquivos salvos para guardar no banco
+    // Extrai apenas os nomes dos arquivos
     const fotos = data.files?.map(file => file.filename) || [];
 
-    // Se não vier coordenadas, tenta buscar na API
+    // Geocodificação
     if (!lat || !lng) {
       try {
         const geocoded = await this.geocodeAddress(data.endereco);
@@ -40,11 +41,11 @@ export class OccurrenceService {
       }
     }
 
-    // Garante que são números (form-data envia como string)
     const latitude = typeof lat === 'string' ? parseFloat(lat) : lat;
     const longitude = typeof lng === 'string' ? parseFloat(lng) : lng;
 
-    return await prisma.occurrence.create({
+    // 1. Cria no Banco de Dados
+    const occurrence = await prisma.occurrence.create({
       data: {
         tipo: data.tipo,
         local: data.local,
@@ -56,7 +57,7 @@ export class OccurrenceService {
         descricao: data.descricao,
         criadoPorId: data.criadoPorId,
         responsavelId: data.responsavelId,
-        fotos: fotos, // Salva o array de strings
+        fotos: fotos,
         dataOcorrencia: new Date()
       },
       include: {
@@ -64,6 +65,17 @@ export class OccurrenceService {
         responsavel: { select: { nome: true, email: true, cargo: true } }
       }
     });
+
+    // 2. Emite o evento para o Socket.io (Tempo Real)
+    try {
+      const io = getIO();
+      io.emit('occurrence:new', occurrence);
+    } catch (error) {
+      console.error('Erro ao emitir socket na criação:', error);
+      // Não damos throw aqui para não cancelar a criação se o socket falhar
+    }
+
+    return occurrence;
   }
 
   async update(id: string, data: any, userId: string) {
@@ -73,7 +85,7 @@ export class OccurrenceService {
       throw { statusCode: 404, message: 'Ocorrência não encontrada' };
     }
 
-    // Lógica de histórico
+    // Histórico
     if (data.status && data.status !== current.status) {
       await prisma.occurrenceHistory.create({
         data: {
@@ -88,7 +100,7 @@ export class OccurrenceService {
 
     const updateData: any = { ...data, updatedAt: new Date() };
 
-    // Atualiza datas e tempos automaticamente
+    // Atualiza datas
     if (data.status === 'EM_ATENDIMENTO' && !current.dataAtendimento) {
       updateData.dataAtendimento = new Date();
       updateData.tempoResposta = Math.floor(
@@ -100,7 +112,8 @@ export class OccurrenceService {
       updateData.dataConclusao = new Date();
     }
 
-    return await prisma.occurrence.update({
+    // 1. Atualiza no Banco
+    const updatedOccurrence = await prisma.occurrence.update({
       where: { id },
       data: updateData,
       include: {
@@ -108,6 +121,16 @@ export class OccurrenceService {
         responsavel: { select: { nome: true } }
       }
     });
+
+    // 2. Emite o evento para o Socket.io (Tempo Real)
+    try {
+      const io = getIO();
+      io.emit('occurrence:update', updatedOccurrence);
+    } catch (error) {
+      console.error('Erro ao emitir socket na atualização:', error);
+    }
+
+    return updatedOccurrence;
   }
 
   private async geocodeAddress(address: string): Promise<{ latitude: number; longitude: number }> {
